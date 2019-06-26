@@ -8,6 +8,7 @@
 #include <linux/if_ether.h>
 #include <net/if.h>
 #include <stdlib.h>
+#include <time.h>
 
 static Queue Anal_Sending;
 static sem_t Q_state;
@@ -15,21 +16,22 @@ static List Device_List;
 
 void *pShm = NULL;
 
-#define MemBase pShm
-#define _MemFlag *((char *)MemBase)
-#define _Belonging *((char *)MemBase + 1)
-#define _Program_Exit *((char *)MemBase + 2)
+#define MemBase 		pShm
+#define _MemFlag 		*((char *)MemBase)
+#define _Belonging 		*((char *)MemBase + 1)
+#define _Program_Exit 	*((char *)MemBase + 2)
+#define _Channel     	*((char *)MemBase + 3)
 
 static char print_radiotap_namespace(struct ieee80211_radiotap_iterator *iter, Packet_Info *Info)
 {
 	uint32_t phy_freq = 0;
 	switch (iter->this_arg_index)
 	{
-	// 通信信息
+	// Communication information
 	case IEEE80211_RADIOTAP_CHANNEL:
 		Info->Phy_Freq = le16toh(*(uint16_t *)iter->this_arg);
 		break;
-	// 信号强度
+	// Signal strength
 	case IEEE80211_RADIOTAP_DBM_ANTSIGNAL:
 		Info->RSSI = *(signed char *)iter->this_arg;
 		if (Info->RSSI >= 0)
@@ -68,21 +70,24 @@ void sleep_m(int sec, int micro)
 	t_timeval.tv_usec = micro * 1000;
 	select(0, NULL, NULL, NULL, &t_timeval);
 }
+
 void PT_init(PT *p)
 {
 	Q_Init(&(p->Msg));
 	if (sem_init(&(p->Q_state), 0, 1) || sem_init(&(p->Contains), 0, 0))
 	{
-		printf("SEM INIT FAILED!\n");
+		printf("WiFiProbe: error: SEM INIT FAILED! Exiting.\n");
 		exit(1);
 	}
 }
+
 void Init_thread_Share()
 {
 	Q_Init(&Anal_Sending);
 	List_Init(&Device_List);
 	sem_init(&Q_state, 0, 1);
 }
+
 void Command_Exe(const char *str)
 {
 	char *Index = str;
@@ -108,6 +113,7 @@ void Command_Exe(const char *str)
 		printf("%s\r\n", Index);
 	}
 }
+
 void *Timer(void *p)
 {
 	int Flag = 1;
@@ -117,16 +123,17 @@ void *Timer(void *p)
 	{
 		if (_Program_Exit == Program_Exit)
 		{
-			printf("Main Thread Exit.\r\n");
+			printf("WiFiProbe: Main Thread Exit.\r\n");
 			exit(1);
 		}
+
 		if (_MemFlag == 1)
 		{
 			Counter++;
 			if (Counter >= 40)
 			{
 				Counter = 0;
-				printf("Monitor Dead\r\n");
+				printf("WiFiProbe: Monitor Dead (whatever it means)\r\n");
 				if (_Belonging == Main_Create_Montion)
 				{
 					wait(NULL);
@@ -143,16 +150,28 @@ void *Timer(void *p)
 			_MemFlag = 1;
 			Counter = 0;
 		}
+
 		memset(Command, 0, 35);
-		sprintf(Command, "iw wlan0 set channel %d", Flag++);
-		system((const char *)Command); //更改信道
+		// sprintf(Command, "iw wlan0 set channel %d", Flag++);
+		sprintf(Command, "iw phy phy0 set channel %d", Flag);
+		// printf("WifiProbe::Timer: sending change channel command\n");
+		system((const char *)Command); // Setting channel
+
+		// Updating channel info
+		_Channel = Flag;
+		// printf( "WifiProbe::Timer: channel setted to %d\n", Flag );
+
+		++Flag;
+
 		if (Flag > 11)
 		{
 			Flag = 1;
 		}
+
 		sleep_m(0, 250);
 	}
 }
+
 void *Analysis_Data(void *p)
 {
 	int i = 0;
@@ -174,8 +193,9 @@ void *Analysis_Data(void *p)
 		}
 		header = (i3e_header *)(packet + le16toh(((struct ieee80211_radiotap_header *)packet)->it_len));
 		header->fc = le16toh(header->fc);
-		u_char type = (header->fc & 0x0c) >> 2;
+		u_char type =  (header->fc & 0x0c) >> 2;
 		u_char stype = (header->fc & 0xf0) >> 4;
+
 		Packet_Info Info;
 		Packet_Info_Init(&Info);
 		switch (type)
@@ -208,6 +228,7 @@ void *Analysis_Data(void *p)
 			continue;
 		}
 		}
+
 		if (Info.Source_Mac.MAC_SLICE[0] == 0x00)
 		{
 			if (Info.ESSID)
@@ -216,6 +237,7 @@ void *Analysis_Data(void *p)
 			}
 			continue;
 		}
+
 		int j = 0;
 		while (!ieee80211_radiotap_iterator_next(&iter))
 		{
@@ -229,6 +251,7 @@ void *Analysis_Data(void *p)
 			}
 			j++;
 		}
+
 		if (j == -1)
 		{
 			if (Info.ESSID)
@@ -237,7 +260,20 @@ void *Analysis_Data(void *p)
 			}
 			continue;
 		}
+
 		Info.PowerMange = header->fc >> 12 & 0x01;
+
+		// Recording channel info
+		Info.Channel = _Channel;
+
+		// Recording sequence num
+		Info.Seq = header->seq_ctrl;
+
+		// Recording timestamp
+		Info.timestamp = (unsigned int)time(NULL);
+		
+		// printf( "WifiProbe::Analyze data: channel setted %d\n", Info.Channel );
+
 		sem_wait(&Q_state);
 		List_Add(&Device_List, &Info);
 		sem_post(&Q_state);
@@ -248,6 +284,7 @@ void *Analysis_Data(void *p)
 	}
 	pthread_exit(NULL);
 }
+
 void *Sending_To_Server(void *p)
 {
 	int sockfd;
@@ -256,7 +293,7 @@ void *Sending_To_Server(void *p)
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = AF_INET;									   //ipv4
 	servaddr.sin_port = htons(4100);								   //8000 port
-	if (inet_pton(AF_INET, "123.206.84.193", &servaddr.sin_addr) <= 0) //ip
+	if (inet_pton(AF_INET, "172.16.2.53", &servaddr.sin_addr) <= 0) //ip
 	{
 		exit(1);
 	}
@@ -272,12 +309,12 @@ void *Sending_To_Server(void *p)
 		sem_post(&Q_state);
 		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		{
-			printf("create socket error: %s(errno: %d)\n", strerror(errno), errno);
+			printf("WifiProbe: error:create socket error: %s(errno: %d)\n", strerror(errno), errno);
 			continue;
 		}
 		if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) //can not connet to server
 		{
-			printf("Cannot connect Server!\r\n");
+			printf("WifiProbe: error: Cannot connect Server!\r\n");
 		}
 		else
 		{

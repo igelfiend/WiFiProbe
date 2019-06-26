@@ -2,15 +2,18 @@
 #include <malloc.h>
 #include <string.h>
 #include <stdio.h>
+
 void Packet_Info_Init(Packet_Info *Info)
 {
     memset(Info, 0, sizeof(Packet_Info));
 }
+
 void List_Init(List *pList)
 {
     pList->Header = 0;
     pList->Num = 0;
 }
+
 void List_Destory(List *pList)
 {
     Node *pCurrent = pList->Header;
@@ -21,6 +24,7 @@ void List_Destory(List *pList)
         free(Temp);
     }
 }
+
 void List_Node_Init(Node *pNode)
 {
     pNode->Status = 1;
@@ -30,16 +34,22 @@ void List_Node_Init(Node *pNode)
     pNode->RSSI_Counter = 0;
     StringArray_Init(&(pNode->ESSID));
 }
+
 void Node_WriteInfo(Node *pNode, Packet_Info *Info)
 {
     if (Info->RSSI >= 0)
     {
         return;
     }
-    pNode->Phy_Freq = Info->Phy_Freq;
-    pNode->PowerMange = Info->PowerMange;
+
+    pNode->Seq           = Info->Seq;
+    pNode->Channel       = Info->Channel;
+    pNode->timestamp     = Info->timestamp;
+    pNode->Phy_Freq      = Info->Phy_Freq;
+    pNode->PowerMange    = Info->PowerMange;
     pNode->Key.MAC_STORE = Info->Source_Mac.MAC_STORE;
     pNode->Target_Station_Mac.MAC_STORE = Info->Target_Station_Mac.MAC_STORE;
+
     if (pNode->RSSI_Counter > 65536)
     {
         pNode->RSSI_Counter = 1;
@@ -50,9 +60,21 @@ void Node_WriteInfo(Node *pNode, Packet_Info *Info)
         pNode->RSSI += Info->RSSI;
         pNode->RSSI_Counter++;
     }
+
     pNode->Status = 1;
-    StringArray_AddString(&(pNode->ESSID), Info->ESSID);
+
+    
+    // ESSID possible received NULL value, reassign that case into ""
+    if( Info->ESSID == NULL )
+    {
+        StringArray_AddString(&(pNode->ESSID), "");
+    }
+    else
+    {
+        StringArray_AddString(&(pNode->ESSID), Info->ESSID);
+    }
 }
+
 void List_Add(List *pList, Packet_Info *Info)
 {
     MAC_Def sMAC;
@@ -101,6 +123,7 @@ void List_Add(List *pList, Packet_Info *Info)
         }
     }
 }
+
 void Show_Node(Node *pNode)
 {
 
@@ -119,6 +142,7 @@ void Show_Node(Node *pNode)
     printf("RSSI_Counter:%d,RSSI_Average:%d\r\n", pNode->RSSI_Counter, pNode->RSSI / pNode->RSSI_Counter);
     printf("Phy_Fre:%d MHz,PowerManage:%d\r\n", pNode->Phy_Freq, pNode->PowerMange);
 }
+
 void List_Flip(List *pList)
 {
     Node *pCurrent = pList->Header;
@@ -157,6 +181,7 @@ void List_Flip(List *pList)
         }
     }
 }
+
 void List_Show(List *pList)
 {
     Node *pCurrent = pList->Header;
@@ -174,6 +199,7 @@ void List_Show(List *pList)
     printf("End.\r\n");
     */
 }
+
 char *List_Element_To_Str(List *pList)
 {
     extern unsigned char mac_addr[6];
@@ -181,20 +207,43 @@ char *List_Element_To_Str(List *pList)
     char Flag = 0;
     Node *pCurrent = pList->Header;
     /***************Fill the Request Body***************/
-    char *pBody = (char *)malloc(sizeof(char) * pList->Num * 45 + 45);
-    Str_Length = sprintf(pBody, "{\"node\":\"%x:%x:%x:%x:%x:%x\",\"nearby\":[", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+
+    size_t nodeBlockSize      = 45;
+    size_t componentBlockSize = 130;
+
+    char *pBody = (char *)malloc(sizeof(char) * pList->Num * componentBlockSize + nodeBlockSize);
+    // Str_Length = sprintf(pBody, "{\"node\":\"%x:%x:%x:%x:%x:%x\",\"nearby\":[", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+    Str_Length = sprintf(pBody,
+                         "{\"id\": \"%.2x%.2x%.2x%.2x%.2x%.2x\","
+                         "\"packets\":[",
+                         mac_addr[0], mac_addr[1], mac_addr[2],
+                         mac_addr[3], mac_addr[4], mac_addr[5] );
     while (pCurrent)
     {
-        Str_Length += sprintf(pBody + Str_Length, "{\"mac\":\"%x:%x:%x:%x:%x:%x\",\"rssi\":%d},",
+        Str_Length += sprintf(pBody + Str_Length,
+                              "{\"source\":\"%.2x%.2x%.2x%.2x%.2x%.2x\","
+                              "\"rssi\":%d, "
+                              "\"ssid\": \"%s\", "
+                              "\"ch\": %d, "
+                              "\"seq_num\": %d, "
+                              "\"timestamp\": %u},",
                               pCurrent->Key.MAC_SLICE[0], pCurrent->Key.MAC_SLICE[1], pCurrent->Key.MAC_SLICE[2],
                               pCurrent->Key.MAC_SLICE[3], pCurrent->Key.MAC_SLICE[4], pCurrent->Key.MAC_SLICE[5],
-                              pCurrent->RSSI / pCurrent->RSSI_Counter);
+                              pCurrent->RSSI / pCurrent->RSSI_Counter,
+                              *(pCurrent->ESSID.pArray),
+                              pCurrent->Channel,
+                              pCurrent->Seq,
+                              pCurrent->timestamp );
         pCurrent = pCurrent->Next;
         Flag = 1;
     }
+
     pBody[Flag ? Str_Length - 1 : Str_Length] = ']';
     pBody[Str_Length++] = '}';
     pBody[Str_Length] = 0;
+
+    //printf("body content: %s\n", pBody);
+
     /***************Here comes to add Header*************/
     const char *HttpHeader = "POST /mac/post HTTP/1.1\r\nHost: qcloud.zhangzaizai.com\r\nContent-Type: text/plain\r\nAccept: */*\nAccept-Encoding: deflate, br\r\nConnection: close\r\nContent-Length:";
     int pBody_Length = strlen(pBody), pBody_Request_Length = 1;

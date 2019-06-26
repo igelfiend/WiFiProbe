@@ -7,9 +7,11 @@
 #include <semaphore.h>
 #include <signal.h>
 #include "radiotap_iter.h"
+
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
+
 struct ControlFrame_Body{
 	uint8_t Timestamp[8];
 	uint8_t Capability_Info[2];
@@ -18,6 +20,7 @@ struct ControlFrame_Body{
 	uint8_t SSID_Length;
 	const uint8_t* SSID;
 };
+
 typedef struct header {
 	uint16_t fc;
 	uint16_t duration;
@@ -26,13 +29,16 @@ typedef struct header {
 	uint8_t	bssid[6];
 	uint16_t seq_ctrl;
 } i3e_header;
+
 typedef struct Passing_To_Thread
 {
 	unsigned int node;
 	Queue Msg;
 	sem_t Q_state,Contains;
-}PT;
+} PT;
+
 PT Share;
+
 void PT_init(PT* p);
 /*Global Share*/
 void Init_thread_Share();

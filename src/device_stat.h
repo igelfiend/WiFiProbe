@@ -1,12 +1,15 @@
 #ifndef Device_Stat
 #define Device_Stat
 
+#include <stdint.h>
+
 #include "VarArray.h"
 
 typedef union{
 	long long int MAC_STORE;
 	unsigned char MAC_SLICE[8];
-}MAC_Def;
+} MAC_Def;
+
 typedef struct _Node
 {
     MAC_Def Key;
@@ -14,26 +17,36 @@ typedef struct _Node
     unsigned char Status;
     unsigned char PowerMange;
 	unsigned int Phy_Freq;
+    unsigned int timestamp;
+    uint16_t Seq;
+    char Channel;
     StringArray ESSID;
     struct _Node* Next;
 	int RSSI;
     int RSSI_Counter;
-}Node;
+} Node;
+
 typedef struct
 {
     MAC_Def Source_Mac;
     MAC_Def Target_Station_Mac;
     unsigned char PowerMange;
 	unsigned int Phy_Freq;
+    unsigned int timestamp;
+    uint16_t Seq;
+    char Channel;
     char* ESSID;
     char RSSI;
-}Packet_Info;
+} Packet_Info;
+
 void Packet_Info_Init(Packet_Info* Info);
+
 typedef struct
 {
     int Num;
     Node* Header;
-}List;
+} List;
+
 void List_Init(List* pList);
 void List_Destory(List* pList);
 void List_Add(List* pList,Packet_Info* Info);

@@ -1,12 +1,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "VarArray.h"
+
 void StringArray_Init(StringArray* SArray)
 {
 	SArray->Array_Num = 0;
 	SArray->pArray_Length = 2;
 	SArray->pArray = (VarString_Typedef)malloc(SArray->pArray_Length * sizeof(String_Typedef*) );
 }
+
 void StringArray_AddString(StringArray* SArray, const String_Typedef* Str)
 {
 	if(Str == 0)
@@ -38,6 +40,7 @@ void StringArray_AddString(StringArray* SArray, const String_Typedef* Str)
 		SArray->Array_Num++;
 	}
 }
+
 void StringArray_Destory(StringArray* SArray)
 {
 	int i = 0;
