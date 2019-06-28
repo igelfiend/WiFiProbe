@@ -10,9 +10,13 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "config.h"
+
 static Queue Anal_Sending;
 static sem_t Q_state;
 static List Device_List;
+
+static Config *config = NULL;
 
 void *pShm = NULL;
 
@@ -116,6 +120,12 @@ void Command_Exe(const char *str)
 
 void *Timer(void *p)
 {
+	// Init config if its not inited yet
+	if( !config )
+	{
+		config = Get_Config();
+	}
+
 	int Flag = 1;
 	char Counter = 0;
 	char *Command = (char *)malloc(35);
@@ -153,7 +163,7 @@ void *Timer(void *p)
 
 		memset(Command, 0, 35);
 		// sprintf(Command, "iw wlan0 set channel %d", Flag++);
-		sprintf(Command, "iw phy phy0 set channel %d", Flag);
+		sprintf(Command, "iw %s set channel %d", config->wlanPhys, Flag);
 		// printf("WifiProbe::Timer: sending change channel command\n");
 		system((const char *)Command); // Setting channel
 
@@ -287,13 +297,20 @@ void *Analysis_Data(void *p)
 
 void *Sending_To_Server(void *p)
 {
+	// Init config if its not inited yet
+	if( !config )
+	{
+		config = Get_Config();
+	}
+
 	int sockfd;
 	struct sockaddr_in servaddr;
 	pthread_t tid = 0;
 	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;									   //ipv4
-	servaddr.sin_port = htons(4100);								   //8000 port
-	if (inet_pton(AF_INET, "172.16.2.53", &servaddr.sin_addr) <= 0) //ip
+
+	servaddr.sin_family = AF_INET;								    //ipv4
+	servaddr.sin_port = htons( atoi( config->serverPort ) );	    //4100 port default
+	if (inet_pton(AF_INET, config->serverIp, &servaddr.sin_addr) <= 0) //ip
 	{
 		exit(1);
 	}
@@ -309,7 +326,7 @@ void *Sending_To_Server(void *p)
 		sem_post(&Q_state);
 		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		{
-			printf("WifiProbe: error:create socket error: %s(errno: %d)\n", strerror(errno), errno);
+			printf("WifiProbe: error: Сreate socket error: %s(errno: %d)\n", strerror(errno), errno);
 			continue;
 		}
 		if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) //can not connet to server

@@ -1,9 +1,12 @@
-#include "function.h"
 #include <pcap.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "function.h"
+#include "device_stat.h"
+#include "config.h"
 
 int shmid = 0;
 char* eth_Name = 0;
@@ -126,11 +129,36 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    // Initializing config
+    Init_Config();
+    ConfigState state = Read_Config();
+
+    if( state != ConfigStateReaded )
+    {
+        printf("WiFiProbe: Some problem was occured. Aborting.\n");
+        return 0;
+    }
+
+    Config *config = Get_Config();
+    printf( "WiFiProbe: config data: server ip   - %s\n", config->serverIp   );
+    printf( "WiFiProbe: config data: server port - %s\n", config->serverPort );
+    printf( "WiFiProbe: config data: wlan phys   - %s\n", config->wlanPhys   );
+
     if (fork() == 0)
     {
         void *Share_Mem = NULL;
 
-        if ((shmid = shmget(0, 5, 0666 | IPC_CREAT)) == -1)
+        // Shared memory total:
+        //  * 1 Byte for checking shared memory state
+        //  * 1 byte for "Main_Create_Montion" flag whatever it means
+        //  * 1 byte for "Program_Running" flag. Can be turned into exit state (but still, no total usages)
+        //  * 1 byte for saving current scanning channel num
+        //      (that info can be saved not in shared memoty - used in multithreading, not in multiproseccing,
+        //       but, it was laid here as common data)
+        
+        size_t sharedMemotySize = 4;
+
+        if ((shmid = shmget(0, sharedMemotySize, 0666 | IPC_CREAT)) == -1)
         {
             printf("WiFiProbe: error: Failed while creating shared memory!\r\n");
             exit(1);
