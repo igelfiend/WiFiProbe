@@ -114,7 +114,7 @@ void Command_Exe(const char *str)
 
 		}
 		*/
-		printf("%s\r\n", Index);
+		printf("WiFiProbe::Command_Exe: %s\r\n", Index);
 	}
 }
 
@@ -162,7 +162,6 @@ void *Timer(void *p)
 		}
 
 		memset(Command, 0, 35);
-		// sprintf(Command, "iw wlan0 set channel %d", Flag++);
 		sprintf(Command, "iw %s set channel %d", config->wlanPhys, Flag);
 		// printf("WifiProbe::Timer: sending change channel command\n");
 		system((const char *)Command); // Setting channel
@@ -312,23 +311,30 @@ void *Sending_To_Server(void *p)
 	servaddr.sin_port = htons( atoi( config->serverPort ) );	    //4100 port default
 	if (inet_pton(AF_INET, config->serverIp, &servaddr.sin_addr) <= 0) //ip
 	{
+		printf( "WiFiProbe: Connecting to server failed\n" );
 		exit(1);
 	}
 	Init_thread_Share();
 	while (1)
 	{
-		char *Msg_Word = 0;
 		sleep_m(3, 0);
+
 		sem_wait(&Q_state);
+		char *Msg_Word = 0;
 		List_Flip(&Device_List);
-		List_Show(&Device_List);
+
+		// Enable row below for printing list of founded device nodes
+		// List_Show(&Device_List);
+		
 		Msg_Word = List_Element_To_Str(&Device_List);
 		sem_post(&Q_state);
+
 		if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		{
 			printf("WifiProbe: error: Сreate socket error: %s(errno: %d)\n", strerror(errno), errno);
 			continue;
 		}
+
 		if (connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) //can not connet to server
 		{
 			printf("WifiProbe: error: Cannot connect Server!\r\n");
@@ -346,7 +352,9 @@ void *Sending_To_Server(void *p)
 			}
 			printf("=============================================================\r\n");
 		}
+
 		close(sockfd);
+
 		if (Msg_Word)
 		{
 			free(Msg_Word);

@@ -185,11 +185,11 @@ void List_Flip(List *pList)
 void List_Show(List *pList)
 {
     Node *pCurrent = pList->Header;
-    printf("Num is %d\r\n", pList->Num);
-    /*
+    printf("Nodes count is %d\r\n", pList->Num);
+    
     while (pCurrent)
     {
-        printf("%x:%x:%x:%x:%x:%x   ",
+        printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x   ",
         pCurrent->Key.MAC_SLICE[0],pCurrent->Key.MAC_SLICE[1],pCurrent->Key.MAC_SLICE[2],
         pCurrent->Key.MAC_SLICE[3],pCurrent->Key.MAC_SLICE[4],pCurrent->Key.MAC_SLICE[5]
         );
@@ -197,7 +197,7 @@ void List_Show(List *pList)
         pCurrent = pCurrent->Next;
     }
     printf("End.\r\n");
-    */
+    
 }
 
 char *List_Element_To_Str(List *pList)
