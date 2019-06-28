@@ -2,7 +2,7 @@
 
 ## June 28th, 2019 Added ##
 * Provided code refactor;
-* Appended using config file;
+* Appended config file usage (server-ip, server-port, wlan physical address);
 * JSON structure was updated into:
 {
     'id': 'xxxxxxxxxxxx',
