@@ -1,5 +1,5 @@
-Scaner:test.o device_stat.o function.o protocol_pack.o Queue.o radiotap.o VarArray.o
-	$(CC) $(LDFLAGS) test.o device_stat.o VarArray.o function.o protocol_pack.o Queue.o radiotap.o -o Scaner -lpcap -lpthread
+Scaner:test.o config.o device_stat.o function.o protocol_pack.o Queue.o radiotap.o VarArray.o
+	$(CC) $(LDFLAGS) test.o config.o device_stat.o VarArray.o function.o protocol_pack.o Queue.o radiotap.o -o Scaner -lpcap -lpthread
 test.o:test.c
 	$(CC) $(CFLAGS) -c test.c
 device_stat.o:device_stat.c
@@ -14,5 +14,7 @@ radiotap.o:radiotap.c
 	$(CC) $(CFLAGS) -c radiotap.c
 VarArray.o:VarArray.c
 	$(CC) $(CFLAGS) -c VarArray.c
+config.o:config.c
+	$(CC) $(CFLAGS) -c config.c
 clean:
 	rm *.o Scaner
