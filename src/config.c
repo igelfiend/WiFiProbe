@@ -4,8 +4,60 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <ctype.h>
 
 Config *config = 0;
+
+/**
+ * Function which trimming string (Removing leading and trailing spaces).
+ * Important: assign result str in outer function, otherwise leading spaces won't be removed
+ * (This problem can be solved using double pointer variable)
+ */
+char *trimwhitespace(char *str)
+{
+    char *end;
+
+    // Trim leading space
+    while(isspace((unsigned char)*str)) str++;
+
+    if(*str == 0)  // All spaces?
+        return str;
+
+    // Trim trailing space
+    end = str + strlen(str) - 1;
+    while(end > str && isspace((unsigned char)*end)) end--;
+
+    // Write new null terminator character
+    end[1] = '\0';
+
+    return str;
+}
+
+/**
+ * Function for splitting and extracting parameters from config file.
+ * Processed config file example:
+ *  server-ip 8.8.8.8
+ *  server-port 4242
+ *  wlan-phys-name wlan0
+ */
+void Split_Config_Row(const char *srcStr, char **paramName, char **paramValue)
+{
+    // Searching space
+    char *paramValuePtr = strchr( srcStr, ' ' );
+
+    // Trimm leading and trailing spaces
+    paramValuePtr = trimwhitespace( paramValuePtr );
+
+    // Copying param value
+    *paramValue = strdup( paramValuePtr );
+
+    // Receiving param name and saving to paramName
+    size_t paramNameLength = paramValuePtr - srcStr;    
+    *paramName = (char *)malloc( sizeof(char) * paramNameLength );
+    strncpy( *paramName, srcStr, paramNameLength );
+
+    *paramName = trimwhitespace( *paramName );
+}
 
 void Init_Config()
 {
@@ -69,20 +121,18 @@ if( strcmp( paramName, str ) == 0 ) strcpy(field, paramValue);
         fprintf( newFile, "%s %s\n", SERVER_PORT_FIELD_NAME, defaultServerPort );
         fprintf( newFile, "%s %s\n", WLAN_PHYS_NAME,         defaultWlanPhys   );
 
-        close( newFile );
+        fclose( newFile );
 
         printf( "WiFiProbe: default cfg file created at %s.\n", FILEPATH );
     }
 
     // Checking if we can read config file
-    printf( "Trying to open file for read\n" );
     FILE *file = fopen( FILEPATH, "r" );
     if( !file )
     {
         printf( "WiFiProbe: Failed reading %s file.\n", FILEPATH );
         return ConfigStateNoReadAccessError;
     }
-    printf( "Openede successfully\n" );
 
     char buffer[255];
 
@@ -103,7 +153,7 @@ if( strcmp( paramName, str ) == 0 ) strcpy(field, paramValue);
         free( paramValue );
     }
 
-    close( file );
+    fclose( file );
 
     return ConfigStateReaded;
 }
@@ -111,18 +161,4 @@ if( strcmp( paramName, str ) == 0 ) strcpy(field, paramValue);
 Config *Get_Config()
 {
     return config;
-}
-
-void Split_Config_Row(const char *srcStr, char **paramName, char **paramValue)
-{
-    // Searching space
-    char *paramValuePtr = strchr( srcStr, ' ' );
-
-    // Copying param value
-    *paramValue = strdup( paramValuePtr );
-
-    // Receiving param name and saving to paramName
-    size_t paramNameLength = paramValuePtr - srcStr;    
-    *paramName = (char *)malloc( sizeof(char) * paramNameLength );
-    strncpy( *paramName, srcStr, paramNameLength );
 }
