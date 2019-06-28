@@ -1,4 +1,31 @@
 # WiFiProbe
+
+## June 28th, 2019 Added ##
+* Provided code refactor;
+* Appended using config file;
+* JSON structure was updated into:
+{
+    'id': 'xxxxxxxxxxxx',
+    'packets': [
+    {
+         'ch': 11,
+         'ssid': '',
+         'seq_num': 20528,
+         'timestamp': 1561536816,
+         'source': 'xxxxxxxxxxxx',
+         'rssi': -37
+    },
+    {
+        'ch': 11,
+        'ssid': 'ntrlab',
+        'seq_num': 45536,
+        'timestamp': 1561536816,
+        'source': 'xxxxxxxxxxxx',
+        'rssi': -34
+    }]
+}
+
+
 ## May 27th, 2018 Added ##
 For Openwrt LEDE *Device or resource busy (-16)* problems, please make sure other apps which will occupy wireless interfaces like hostapd is uninstalled. And to obtain data this app needs, you should turn your WLAN card into *monitor* mode using command *iw*.
 
@@ -6,7 +33,7 @@ For Openwrt LEDE *Device or resource busy (-16)* problems, please make sure othe
 
 ## May 25th, 2018 Added ##
 
-Depends Missing Problem Sovled. Thanks for figoym(sorry for not understanding you at once) and Tianyi.
+Depends Missing Problem Solved. Thanks for figoym(sorry for not understanding you at once) and Tianyi.
 
 ## Introdution
 Openwrt WiFi Probe, with http post to send data to server.
